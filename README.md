@@ -24,8 +24,7 @@ Game packages offered: `com.miHoYo.GenshinImpact`, `com.miHoYo.Yuanshen`,
 
 ## Build and install in GitHub Actions
 
-The workflow `.github/workflows/build-and-install.yml` (stored as `build.yml`) does the
-full job on GitHub-hosted runners:
+The workflow `.github/workflows/build.yml` does the full job on GitHub-hosted runners:
 
 1. installs JDK 17, Android SDK platform/build-tools 34 and Gradle 8.7;
 2. builds the debug APK and packages the project source;
