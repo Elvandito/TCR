@@ -19,6 +19,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -77,7 +78,10 @@ class MainActivity : ComponentActivity() {
 private fun App(resumeTick: Int) {
     var pkg by rememberSaveable { androidx.compose.runtime.mutableStateOf(GamePackages[0]) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf("Storage", "Data", "Unity")
+    val tabs = listOf("Optimize", "Data", "Unity")
+    val optimizerBusy = OptimizerState.busy
+
+    LaunchedEffect(pkg) { OptimizerState.resetForPackage(pkg) }
 
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
@@ -101,6 +105,7 @@ private fun App(resumeTick: Int) {
                 GamePackages.forEach { candidate ->
                     FilterChip(
                         selected = pkg == candidate,
+                        enabled = !optimizerBusy,
                         onClick = { pkg = candidate },
                         label = {
                             Text(candidate, fontFamily = FontFamily.Monospace)
@@ -122,14 +127,14 @@ private fun App(resumeTick: Int) {
 
         Box(Modifier.weight(1f)) {
             when (tab) {
-                0 -> StorageTab(pkg)
+                0 -> OptimizeTab(pkg)
                 1 -> DataTab(pkg, resumeTick)
                 else -> UnityTab()
             }
         }
 
         Text(
-            "Warning: Genshin assets are already compressed and partly encrypted, so zip savings are usually small. Deleting game files means the game must re-download them. Encrypted/custom containers are not unlocked by this app.",
+            "Estimates are sampled projections, not promises. Actual savings can be lower. Deleting files may force re-downloads and modifying game files may violate the game's ToS with possible account risk. Encrypted/custom containers are not unlocked by this app.",
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),

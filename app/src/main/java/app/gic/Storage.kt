@@ -22,6 +22,11 @@ interface Src {
     fun read(p: String): InputStream
     fun write(p: String): OutputStream
     fun delete(top: String)
+    /** Deletes a top-level folder or a safe nested path (used by the optimizer). */
+    fun deletePath(p: String) {
+        require(!p.contains('/')) { "Implement deletePath for nested paths" }
+        delete(p)
+    }
     fun done() {}
 }
 
@@ -161,6 +166,11 @@ class RootSrc(private val base: String) : Src {
         run("rm -rf ${q("$base/$top")}")
     }
 
+    override fun deletePath(p: String) {
+        validRel(p)
+        run("rm -rf ${q("$base/$p")}")
+    }
+
     /** Restored files must once again belong to the game and carry its SELinux label. */
     override fun done() {
         val gameDir = q(base.substringBeforeLast('/'))
@@ -280,6 +290,11 @@ class SafSrc(private val cx: Context, uri: Uri) : Src {
         validTop(top)
         val doc = root.findFile(top) ?: return
         remove(doc)
+    }
+
+    override fun deletePath(p: String) {
+        validRel(p)
+        remove(find(p))
     }
 }
 
