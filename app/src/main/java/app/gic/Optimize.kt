@@ -778,7 +778,7 @@ object OptimizerState {
                 applyScan(list)
                 baseline = total
                 steps = emptyList()
-                status = "Backup restored into $pkg/files. Baseline reset to ${fmtBytes(total)}."
+                status = "Backup restored into ${packageName}/files. Baseline reset to ${fmtBytes(total)}."
             } catch (e: Exception) {
                 error = "Restore failed: ${errText(e)}"
                 status = ""
