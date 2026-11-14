@@ -87,14 +87,30 @@ jobs:
             -no-window -no-audio -no-boot-anim -no-snapshot
             -gpu swiftshader_indirect -camera-back none -camera-front none
           script: |
+            set +e
+            adb logcat -c
             adb install -r apk/app-debug.apk
+            install_rc=$?
             adb shell pm list packages | grep -q '^package:app\.gic$'
+            pkg_rc=$?
             adb shell am start -W -n app.gic/.MainActivity
-            sleep 8
+            start_rc=$?
+            sleep 10
+            adb shell ps -A > ps.txt 2>&1
+            adb shell dumpsys activity activities > activity.txt 2>&1
+            adb shell dumpsys window windows > windows.txt 2>&1
+            adb logcat -d -v threadtime > logcat.txt 2>&1
+            adb logcat -d -b crash -v threadtime > crash.txt 2>&1
+            adb exec-out screencap -p > app-screen.png 2>&1
             pid="$(adb shell pidof app.gic | tr -d '\r')"
-            test -n "$pid"
-            adb shell dumpsys activity activities | grep -m1 app.gic
-            adb exec-out screencap -p > app-screen.png
+            if [ -z "$pid" ]; then
+              pid="$(adb shell ps -A | tr -d '\r' | awk '$9 == "app.gic" { print $2; exit }')"
+            fi
+            echo "install_rc=$install_rc pkg_rc=$pkg_rc start_rc=$start_rc pid=$pid"
+            if [ "$install_rc" -ne 0 ] || [ "$pkg_rc" -ne 0 ] || [ "$start_rc" -ne 0 ] || [ -z "$pid" ]; then
+              echo "APP_CHECK_FAILED"
+              exit 1
+            fi
 
       - name: Upload emulator screenshot
         if: always()
@@ -102,4 +118,17 @@ jobs:
         with:
           name: emulator-screenshot
           path: app-screen.png
+          if-no-files-found: ignore
+
+      - name: Upload emulator diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-diagnostics
+          path: |
+            logcat.txt
+            crash.txt
+            activity.txt
+            windows.txt
+            ps.txt
           if-no-files-found: ignore
