@@ -1,6 +1,7 @@
 package app.gic
 
 import android.content.Context
+import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -69,6 +70,7 @@ fun OptimizeTab(pkg: String) {
     var expanded by remember { mutableStateOf<Set<String>>(emptySet()) }
     var confirmAction by remember { mutableStateOf<PendingDelete?>(null) }
     var pendingAction by remember { mutableStateOf<PendingDelete?>(null) }
+    var restoreUri by remember { mutableStateOf<Uri?>(null) }
     var selfCheck by remember { mutableStateOf("Running estimator self-check...") }
 
     LaunchedEffect(pkg) { OptimizerState.resetForPackage(pkg) }
@@ -97,7 +99,7 @@ fun OptimizeTab(pkg: String) {
         if (uri != null) OptimizerState.backupAll(cx, uri)
     }
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) OptimizerState.restore(cx, uri)
+        if (uri != null) restoreUri = uri
     }
 
     if (showWarning) {
@@ -258,6 +260,31 @@ fun OptimizeTab(pkg: String) {
             }
         }
 
+        item {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("Estimator self-check (read-only)", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        selfCheck,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (selfCheck.startsWith("Estimator self-check OK")) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                    Text(
+                        "Runs zstd-19 and xz on a 512 KiB in-memory sample. No game file is touched.",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+        }
+
         if (st.files.isNotEmpty()) {
             item {
                 Card {
@@ -311,7 +338,6 @@ fun OptimizeTab(pkg: String) {
                                 onClick = { OptimizerState.estimate(cx) }
                             ) { Text(if (st.estimates.isEmpty()) "Run estimator" else "Measure again") }
                         }
-                        Text(selfCheck, style = MaterialTheme.typography.labelSmall)
                         if (st.estimates.isEmpty()) {
                             Text("No samples yet.", style = MaterialTheme.typography.bodySmall)
                         } else {
@@ -533,12 +559,14 @@ fun OptimizeTab(pkg: String) {
                                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                         Text(
                                             "${step.label}: ${fmtBytes(step.before)} -> ${fmtBytes(step.after)} " +
-                                                "(saved ${fmtBytes(step.saved)})",
+                                                "(saved ${fmtBytes(step.saved)}, " +
+                                                "${pct(step.saved, step.before)} of that step)",
                                             style = MaterialTheme.typography.bodySmall
                                         )
                                         if (step.removed.isNotEmpty()) {
                                             Text(
-                                                "Removed: ${step.removed.joinToString(", ")}",
+                                                "${if (step.optIn) "Removed opt-in" else "Removed"}: " +
+                                                    step.removed.joinToString(", "),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = if (step.optIn) {
                                                     MaterialTheme.colorScheme.error
@@ -596,12 +624,12 @@ fun OptimizeTab(pkg: String) {
                                     }
                                 }
                             }
-                            if (st.recompress != null) {
-                                Text(
-                                    "Recompression step: skipped. ${st.recompress!!.reason}",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            }
+                            val recompressReason = st.recompress?.reason
+                                ?: "No verified per-file in-place compression API; run the kernel check for details."
+                            Text(
+                                "Recompression step: skipped. $recompressReason",
+                                style = MaterialTheme.typography.labelSmall
+                            )
                             Text(
                                 "Unapplied sample projection: ${fmtBytes(st.projectedBytes)}. It is not " +
                                     "counted in the before/after numbers.",
@@ -720,6 +748,29 @@ fun OptimizeTab(pkg: String) {
             },
             dismissButton = {
                 TextButton(onClick = { confirmAction = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    restoreUri?.let { uri ->
+        AlertDialog(
+            onDismissRequest = { restoreUri = null },
+            title = { Text("Restore this backup?") },
+            text = {
+                Text(
+                    "This writes the selected zip under ${OptimizerState.base}. Same-named files " +
+                        "will be overwritten. Restore rejects absolute paths, backslashes and `..`, " +
+                        "then root mode fixes ownership and SELinux labels. Keep the game closed."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    restoreUri = null
+                    OptimizerState.restore(cx, uri)
+                }) { Text("Restore") }
+            },
+            dismissButton = {
+                TextButton(onClick = { restoreUri = null }) { Text("Cancel") }
             }
         )
     }

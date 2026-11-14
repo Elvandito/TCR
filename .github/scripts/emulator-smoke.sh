@@ -17,6 +17,37 @@ capture_evidence() {
   adb exec-out screencap -p > app-screen.png 2>&1 || true
 }
 
+dismiss_warning() {
+  adb shell uiautomator dump /sdcard/gic-window.xml >/dev/null 2>&1 || return 0
+  adb pull /sdcard/gic-window.xml gic-window.xml >/dev/null 2>&1 || return 0
+  local tap
+  tap="$(python3 - <<'PY'
+import re
+import xml.etree.ElementTree as ET
+
+try:
+    tree = ET.parse('gic-window.xml')
+except Exception:
+    raise SystemExit(0)
+
+for node in tree.iter('node'):
+    if node.get('text') != 'I understand':
+        continue
+    match = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.get('bounds', ''))
+    if match:
+        left, top, right, bottom = map(int, match.groups())
+        print((left + right) // 2, (top + bottom) // 2)
+        break
+PY
+)"
+  if [ -n "$tap" ]; then
+    # shellcheck disable=SC2086
+    adb shell input tap $tap
+    sleep 3
+    echo "Dismissed one-time warning at $tap"
+  fi
+}
+
 trap capture_evidence EXIT
 
 echo "Installing APK"
@@ -29,6 +60,8 @@ adb logcat -c || true
 echo "Launching app.gic/.MainActivity"
 adb shell am start -W -n app.gic/.MainActivity || fail "activity manager rejected the launch"
 sleep 10
+dismiss_warning
+sleep 2
 capture_evidence
 
 pid="$(adb shell pidof app.gic 2>/dev/null | tr -d '\r' || true)"

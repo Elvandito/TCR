@@ -697,7 +697,13 @@ object OptimizerState {
                 val result = withContext(Dispatchers.IO) {
                     val src = source(cx)
                     val current = src.list()
-                    val entries = filesUnder(current, selected)
+                    val currentPaths = selected.filter { path ->
+                        current.any { (p, _) -> p == path || p.startsWith("$path/") }
+                    }
+                    if (currentPaths.isEmpty()) {
+                        throw IOException("Selected items no longer exist in a fresh scan")
+                    }
+                    val entries = filesUnder(current, currentPaths)
                     if (entries.isEmpty()) throw IOException("Selected items contain no files")
                     zipSelected(cx, zipUri, src, entries, level) { done, totalBytes, path ->
                         val fraction = if (totalBytes > 0) {
@@ -712,7 +718,7 @@ object OptimizerState {
                     }
                     val removed = ArrayList<String>()
                     var failure: Exception? = null
-                    for (path in selected) {
+                    for (path in currentPaths) {
                         try {
                             src.deletePath(path)
                             removed.add(path)

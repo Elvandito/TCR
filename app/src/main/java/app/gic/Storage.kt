@@ -113,6 +113,20 @@ class RootSrc(private val base: String) : Src {
         val (err, errThread) = drainError(proc)
         return object : FilterInputStream(BufferedInputStream(proc.inputStream)) {
             private var closed = false
+            private var eof = false
+
+            override fun read(): Int {
+                val n = super.read()
+                if (n < 0) eof = true
+                return n
+            }
+
+            override fun read(b: ByteArray, off: Int, len: Int): Int {
+                val n = super.read(b, off, len)
+                if (n < 0) eof = true
+                return n
+            }
+
             override fun close() {
                 if (closed) return
                 closed = true
@@ -124,7 +138,9 @@ class RootSrc(private val base: String) : Src {
                 }
                 val code = proc.waitFor()
                 errThread.join(1000)
-                if (code != 0) {
+                // A partial sample intentionally closes the pipe before `cat` reaches
+                // EOF; SIGPIPE/non-zero is expected there. A full read must be clean.
+                if (code != 0 && eof) {
                     val detail = err.toString().trim().ifBlank { "exit $code" }
                     throw IOException("Root read failed for $p: $detail")
                 }

@@ -91,7 +91,7 @@ private fun App(resumeTick: Int) {
                 color = MaterialTheme.colorScheme.primary
             )
             Text(
-                "Local storage, per-app traffic and UnityFS tools",
+                "Measured size reduction, per-app traffic and UnityFS tools",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

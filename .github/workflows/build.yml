@@ -112,4 +112,5 @@ jobs:
             activity.txt
             windows.txt
             ps.txt
+            gic-window.xml
           if-no-files-found: ignore
