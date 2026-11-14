@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Checkout
@@ -20,7 +20,14 @@ jobs:
           cache: gradle
 
       - name: Install Android 34 SDK packages
-        run: sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
+        run: |
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort | tail -n 1)"
+          if [ -n "${SDKMANAGER}" ]; then
+            "${SDKMANAGER}" --install "platforms;android-34" "build-tools;34.0.0"
+          else
+            test -d "${ANDROID_HOME}/platforms/android-34"
+            test -d "${ANDROID_HOME}/build-tools/34.0.0"
+          fi
 
       - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v3
@@ -52,7 +59,7 @@ jobs:
 
   install:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Download debug APK
