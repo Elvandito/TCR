@@ -56,7 +56,10 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.documentfile:documentfile:1.0.1")
-    implementation("com.github.luben:zstd-jni:1.5.6-4")
+    // zstd-jni's POM declares <packaging>jar</packaging> even though Maven Central
+    // also publishes an Android AAR with the JNI libraries. Select the AAR
+    // explicitly, otherwise Gradle packages the desktop JAR without lib/*.so.
+    implementation("com.github.luben:zstd-jni:1.5.6-4@aar")
     implementation("org.lz4:lz4-java:1.8.0")
     implementation("org.tukaani:xz:1.9")
 }
