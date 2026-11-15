@@ -23,7 +23,9 @@ dump_ui() {
 }
 
 wait_for_text() {
-  local needle="$1" timeout="${2:-60}" deadline=$((SECONDS + timeout))
+  local needle="$1"
+  local timeout="${2:-60}"
+  local deadline=$((SECONDS + timeout))
   while [ "$SECONDS" -lt "$deadline" ]; do
     if dump_ui && grep -Fq "$needle" gic-window.xml; then
       echo "Found UI text: $needle"
