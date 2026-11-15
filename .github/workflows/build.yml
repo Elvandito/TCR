@@ -37,6 +37,16 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon --stacktrace
 
+      - name: Verify zstd JNI libraries are packaged
+        run: |
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | tee apk-contents.txt
+          for abi in arm64-v8a x86_64; do
+            grep -q "lib/${abi}/libzstd-jni-1.5.6-4.so" apk-contents.txt || {
+              echo "Missing libzstd-jni for ${abi}" >&2
+              exit 1
+            }
+          done
+
       - name: Package source archive
         run: |
           zip -r GenshinCompressor-source.zip . \

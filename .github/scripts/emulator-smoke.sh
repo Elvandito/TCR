@@ -17,9 +17,26 @@ capture_evidence() {
   adb exec-out screencap -p > app-screen.png 2>&1 || true
 }
 
+dump_ui() {
+  adb shell uiautomator dump /sdcard/gic-window.xml >/dev/null 2>&1 || return 1
+  adb pull /sdcard/gic-window.xml gic-window.xml >/dev/null 2>&1 || return 1
+}
+
+wait_for_text() {
+  local needle="$1" timeout="${2:-60}" deadline=$((SECONDS + timeout))
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    if dump_ui && grep -Fq "$needle" gic-window.xml; then
+      echo "Found UI text: $needle"
+      return 0
+    fi
+    sleep 2
+  done
+  echo "Timed out waiting for UI text: $needle"
+  return 1
+}
+
 dismiss_warning() {
-  adb shell uiautomator dump /sdcard/gic-window.xml >/dev/null 2>&1 || return 0
-  adb pull /sdcard/gic-window.xml gic-window.xml >/dev/null 2>&1 || return 0
+  dump_ui || return 0
   local tap
   tap="$(python3 - <<'PY'
 import re
@@ -61,7 +78,11 @@ echo "Launching app.gic/.MainActivity"
 adb shell am start -W -n app.gic/.MainActivity || fail "activity manager rejected the launch"
 sleep 10
 dismiss_warning
-sleep 2
+if ! wait_for_text "Estimator self-check OK" 90; then
+  capture_evidence
+  fail "Optimize estimator self-check did not report OK"
+fi
+sleep 1
 capture_evidence
 
 pid="$(adb shell pidof app.gic 2>/dev/null | tr -d '\r' || true)"
