@@ -37,20 +37,23 @@ wait_for_text() {
   return 1
 }
 
-dismiss_warning() {
-  dump_ui || return 0
+tap_text() {
+  local needle="$1"
+  dump_ui || return 1
   local tap
-  tap="$(python3 - <<'PY'
+  tap="$(python3 - "$needle" <<'PY'
 import re
+import sys
 import xml.etree.ElementTree as ET
 
+needle = sys.argv[1]
 try:
     tree = ET.parse('gic-window.xml')
 except Exception:
     raise SystemExit(0)
 
 for node in tree.iter('node'):
-    if node.get('text') != 'I understand':
+    if node.get('text') != needle:
         continue
     match = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.get('bounds', ''))
     if match:
@@ -62,8 +65,15 @@ PY
   if [ -n "$tap" ]; then
     # shellcheck disable=SC2086
     adb shell input tap $tap
+    echo "Tapped '$needle' at $tap"
+    return 0
+  fi
+  return 1
+}
+
+dismiss_warning() {
+  if tap_text "I understand"; then
     sleep 3
-    echo "Dismissed one-time warning at $tap"
   fi
 }
 
@@ -84,6 +94,14 @@ if ! wait_for_text "Estimator self-check OK" 90; then
   capture_evidence
   fail "Optimize estimator self-check did not report OK"
 fi
+
+tap_text "Data" || fail "Data tab was not found"
+wait_for_text "Per-app traffic" 30 || fail "Data tab did not render"
+tap_text "Unity" || fail "Unity tab was not found"
+wait_for_text "UnityFS AssetBundle inspector" 30 || fail "Unity tab did not render"
+tap_text "Optimize" || fail "Optimize tab was not found"
+wait_for_text "Estimator self-check OK" 30 || fail "Optimize tab did not render after returning"
+
 sleep 1
 capture_evidence
 
